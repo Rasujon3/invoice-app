@@ -2,6 +2,7 @@
 import { onMounted, ref } from "vue";
 
 let invoices = ref([]);
+let searchInvoices = ref([]);
 
 onMounted(async () => {
     await getInvoices();
@@ -10,7 +11,16 @@ onMounted(async () => {
 const getInvoices = async () => {
     try {
         let response = await axios.get("/api/get_all_invoice");
-        console.log("response", response.data.invoices);
+        // console.log("response", response.data.invoices);
+        invoices.value = response.data.invoices;
+    } catch (error) {
+        console.log("error", error);
+    }
+}
+const search = async () => {
+    try {
+        let response = await axios.get("/api/search_invoice?s="+searchInvoices.value);
+        // console.log("response", response.data.invoices);
         invoices.value = response.data.invoices;
     } catch (error) {
         console.log("error", error);
@@ -63,6 +73,7 @@ const getInvoices = async () => {
                             class="table--search--input"
                             type="text"
                             placeholder="Search invoice"
+                            v-model="searchInvoices" @keyup="search()"
                         />
                     </div>
                 </div>
