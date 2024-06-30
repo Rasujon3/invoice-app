@@ -1,7 +1,9 @@
 <script setup>
     import axios from "axios";
     import {onMounted, ref} from "vue";
-    import router from "@/router";
+    import {useRouter} from "vue-router";
+
+    const router = useRouter();
 
     let form = ref({id: ''});
 
@@ -17,14 +19,15 @@
     })
 
     const getInvoice = async () => {
-        console.log('props.id',props.id)
         let response = await axios.get(`/api/show_invoice/${props.id}`);
-        console.log('response',response.data.invoice);
         form.value = response.data.invoice;
     }
     const print = () => {
         window.print();
         router.push('/').catch(() => {});
+    }
+    const onEdit = (id) => {
+        router.push('/invoice/edit/'+id);
     }
 </script>
 
@@ -58,7 +61,7 @@
                         </li>
                         <li>
                             <!-- Select Btn Option -->
-                            <button class="selectBtnFlat">
+                            <button class="selectBtnFlat" @click="onEdit(form.id)">
                                 <i class=" fas fa-reply"></i>
                                 Edit
                             </button>

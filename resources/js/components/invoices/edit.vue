@@ -1,43 +1,48 @@
 <script setup>
+import axios from "axios";
 import {onMounted, ref} from "vue";
 import {useRouter} from "vue-router";
 
 const router = useRouter();
 
-let form = ref([]);
+let form = ref({
+    id: ''
+});
 let allCustomers = ref([]);
 let customer_id = ref([]);
-let item = ref([]);
-let listCard = ref([]);
 const showModal = ref(false);
 const hideModal = ref(true);
 const listProducts = ref([]);
+let listCard = ref([]);
 
 onMounted(async () => {
-    await indexForm();
+    await getInvoice();
     await getAllCustomers();
     await getProducts();
 })
-const indexForm = async () => {
-    let response = await axios.get('/api/create_invoice')
-    // console.log('form', response.data)
-    form.value = response.data;
+
+const props = defineProps({
+    id: {
+        type: String,
+        default: ''
+    }
+})
+
+const getInvoice = async () => {
+    let response = await axios.get(`/api/edit_invoice/${props.id}`);
+    // console.log('response',response.data.invoice);
+    form.value = response.data.invoice;
 }
 const getAllCustomers = async () => {
     let response = await axios.get('/api/customers')
     // console.log('allCustomers', response.data)
     allCustomers.value = response.data.customers;
 }
-const addCart = (item) => {
-    const itemcart = {
-        id: item.id,
-        item_code: item.item_code,
-        description: item.description,
-        unit_price: item.unit_price,
-        quantity: item.quantity,
+const deleteInvoiceItem = (id, i) => {
+    form.value.invoice_items.splice(i, 1);
+    if (id != undefined) {
+        axios.get('/api/delete_invoice_items/' + id);
     }
-    listCard.value.push(itemcart)
-    closeModal()
 }
 const openModal = () => {
     showModal.value = !showModal.value;
@@ -50,31 +55,46 @@ const getProducts = async () => {
     // console.log('response', response.data.products)
     listProducts.value = response.data.products;
 }
-const removeItem = (i) => {
-    listCard.value.splice(i,1);
+const addCart = (item) => {
+    const itemcart = {
+        product_id: item.id,
+        item_code: item.item_code,
+        description: item.description,
+        unit_price: item.unit_price,
+        quantity: item.quantity,
+    }
+    // listCard.value.push(itemcart)
+    form.value.invoice_items.push(itemcart);
+    closeModal()
 }
+
 const subTotal = () => {
     let total = 0;
-    listCard.value.map((data) => {
-        if (data.quantity !== undefined) {
-            total = total + (data.quantity * data.unit_price);
-        }
-    });
+    if (form.value.invoice_items) {
+        form.value.invoice_items.map((data) => {
+            if (data.quantity !== undefined) {
+                total = total + (data.quantity * data.unit_price);
+            }
+        });
+    }
     return total;
 }
 const Total = () => {
-    return subTotal() - form.value.discount;
+    if (form.value.invoice_items) {
+        return subTotal() - form.value.discount;
+    }
 }
-const onSave = () => {
-    if (listCard.value.length >= 1) {
+const onEdit = (id) => {
+    if (form.value.invoice_items.length >= 1) {
+        // alert(JSON.stringify(form.value.invoice_items));
         let subtotal = 0;
         subtotal = subTotal();
         let total = 0;
         total = Total();
 
         const formData = new FormData();
-        formData.append('invoice_item', JSON.stringify(listCard.value))
-        formData.append('customer_id', (customer_id.value))
+        formData.append('invoice_item', JSON.stringify(form.value.invoice_items))
+        formData.append('customer_id', (form.value.customer_id))
         formData.append('date', (form.value.date))
         formData.append('due_date', (form.value.due_date))
         formData.append('discount', (form.value.discount))
@@ -84,11 +104,12 @@ const onSave = () => {
         formData.append('total', (total))
         formData.append('terms_and_conditions', (form.value.terms_and_conditions))
 
-        axios.post("/api/add_invoice", formData)
-        listCard.value = []
+        axios.post(`/api/update_invoice/${form.value.id}`, formData)
+        form.value.invoice_items = []
         router.push('/');
     }
 }
+
 </script>
 
 <template>
@@ -97,7 +118,7 @@ const onSave = () => {
 
             <div class="card__header">
                 <div>
-                    <h2 class="invoice__title">New Invoice</h2>
+                    <h2 class="invoice__title">Edit Invoice</h2>
                 </div>
                 <div>
 
@@ -108,7 +129,7 @@ const onSave = () => {
                 <div class="card__content--header">
                     <div>
                         <p class="my-1">Customer</p>
-                        <select name="" id="" class="input" v-model="customer_id">
+                        <select name="" id="" class="input" v-model="form.customer_id">
                             <option disabled selected>Select customer</option>
                             <option v-for="customer in allCustomers" :key="customer.id" :value="customer.id">
                                 {{ customer.firstname }}
@@ -117,15 +138,15 @@ const onSave = () => {
                     </div>
                     <div>
                         <p class="my-1">Date</p>
-                        <input id="date" placeholder="dd-mm-yyyy" type="date" class="input" v-model="form.date"> <!---->
+                        <input id="date" placeholder="dd-mm-yyyy" type="date" class="input" v-model="form.date" > <!---->
                         <p class="my-1">Due Date</p>
-                        <input id="due_date" type="date" class="input" v-model="form.due_date">
+                        <input id="due_date" type="date" class="input" v-model="form.due_date" >
                     </div>
                     <div>
                         <p class="my-1">Numero</p>
-                        <input type="text" class="input" v-model="form.number">
+                        <input type="text" class="input" v-model="form.number" >
                         <p class="my-1">Reference(Optional)</p>
-                        <input type="text" class="input" v-model="form.reference">
+                        <input type="text" class="input" v-model="form.reference" >
                     </div>
                 </div>
                 <br><br>
@@ -140,26 +161,28 @@ const onSave = () => {
                     </div>
 
                     <!-- item 1 -->
-                    <div class="table--items2" v-for="(itemcart, i) in listCard" :key="itemcart.id">
-                        <p>{{ itemcart.item_code }} {{itemcart.description}} </p>
-                        <p>
-                            <input type="text" class="input" v-model="itemcart.unit_price">
+                    <div class="table--items2" v-for="(itemcart, i) in form.invoice_items" :key="itemcart.id" >
+                        <p v-if="itemcart.product" >
+                            #{{itemcart.product.item_code}} {{itemcart.product.description}}
+                        </p>
+                        <p v-else>
+                            #{{itemcart.item_code}} {{itemcart.description}}
                         </p>
                         <p>
-                            <input type="text" class="input" v-model="itemcart.quantity">
+                            <input type="text" class="input" v-model="itemcart.unit_price" >
                         </p>
-                        <p v-if="itemcart.quantity">
-                            $ {{ (itemcart.quantity)*(itemcart.unit_price) }}
+                        <p>
+                            <input type="text" class="input" v-model="itemcart.quantity" >
                         </p>
-                        <p v-else></p>
-                        <p style="color: red; font-size: 24px;cursor: pointer;" @click="removeItem(i)" >
+                        <p>
+                            $ {{ itemcart.quantity * itemcart.unit_price }}
+                        </p>
+                        <p style="color: red; font-size: 24px;cursor: pointer;" @click="deleteInvoiceItem(itemcart.id, i)" >
                             &times;
                         </p>
                     </div>
-                    <div style="padding: 10px 30px !important;">
-                        <button class="btn btn-sm btn__open--modal" @click="openModal()">
-                            Add New Line
-                        </button>
+                    <div style="padding: 10px 30px !important;" @click="openModal()">
+                        <button class="btn btn-sm btn__open--modal">Add New Line</button>
                     </div>
                 </div>
 
@@ -175,7 +198,7 @@ const onSave = () => {
                         </div>
                         <div class="table__footer--discount">
                             <p>Discount</p>
-                            <input type="text" class="input" v-model="form.discount">
+                            <input type="text" class="input" v-model="form.discount" >
                         </div>
                         <div class="table__footer--total">
                             <p>Grand Total</p>
@@ -191,7 +214,7 @@ const onSave = () => {
 
                 </div>
                 <div>
-                    <a class="btn btn-secondary" @click="onSave()">
+                    <a class="btn btn-secondary" @click="onEdit(form.id)">
                         Save
                     </a>
                 </div>
@@ -215,7 +238,7 @@ const onSave = () => {
                 </div>
                 <br><hr>
                 <div class="model__footer">
-                    <button class="btn btn-light mr-2 btn__close--modal">
+                    <button class="btn btn-light mr-2 btn__close--modal" @click="closeModal()">
                         Cancel
                     </button>
                     <button class="btn btn-light btn__close--modal ">Save</button>

@@ -1,7 +1,8 @@
 <script setup>
 import { onMounted, ref } from "vue";
-import { useRouter } from "vue-router";
-import router from "@/router";
+import {useRouter} from "vue-router";
+
+const router = useRouter();
 
 let invoices = ref([]);
 let searchInvoices = ref([]);
